@@ -60,7 +60,6 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
 
 	public void draw(Graphics g) {
         for(int i = 0; i < boardWidth/tileSize; i++) {
-            //(x1, y1, x2, y2)
             g.drawLine(i*tileSize, 0, i*tileSize, boardHeight);
             g.drawLine(0, i*tileSize, boardWidth, i*tileSize); 
         }
@@ -102,7 +101,7 @@ public class SnakeGame extends JPanel implements ActionListener, KeyListener {
         
         for (int i = snakeBody.size()-1; i >= 0; i--) {
             Tile snakePart = snakeBody.get(i);
-            if (i == 0) { //right before the head
+            if (i == 0) {
                 snakePart.x = snakeHead.x;
                 snakePart.y = snakeHead.y;
             }
