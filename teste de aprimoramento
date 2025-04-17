@@ -1,0 +1,295 @@
+App
+
+import javax.swing.*;
+import java.awt.*;
+
+public class App {
+    public static void main(String[] args) {
+        int boardWidth = 600;
+        int boardHeight = boardWidth;
+
+        JFrame frame = new JFrame("SnakeCobra");
+        frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setResizable(false);
+        frame.setLocationRelativeTo(null);
+
+        CardLayout layout = new CardLayout();
+        JPanel container = new JPanel(layout);
+
+        MenuPanel menuPanel = new MenuPanel(layout, container, boardWidth, boardHeight);
+        container.add(menuPanel, "menu");
+
+        frame.add(container);
+        frame.pack();
+        frame.setVisible(true);
+    }
+}
+
+=================================================
+
+game over panel
+
+
+import javax.swing.*;
+import java.awt.*;
+
+public class GameOverPanel extends JPanel {
+    public GameOverPanel(CardLayout layout, JPanel container, int width, int height) {
+        setPreferredSize(new Dimension(width, height));
+        setLayout(new GridBagLayout());
+
+        JPanel panel = new JPanel(new GridLayout(2, 1, 10, 10));
+        JButton restartButton = new JButton("Jogar de Novo");
+        JButton menuButton = new JButton("Menu");
+
+        restartButton.addActionListener(e -> {
+            SnakeGame gamePanel = new SnakeGame(width, height, layout, container);
+            container.add(gamePanel, "game");
+            layout.show(container, "game");
+            SwingUtilities.invokeLater(() -> gamePanel.requestFocusInWindow());
+        });
+
+        menuButton.addActionListener(e -> {
+            layout.show(container, "menu");
+        });
+
+        panel.add(restartButton);
+        panel.add(menuButton);
+        add(panel);
+    }
+}
+===================================================
+snake game
+
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.Random;
+
+public class SnakeGame extends JPanel implements ActionListener, KeyListener {
+    private class Tile {
+        int x, y;
+
+        Tile(int x, int y) {
+            this.x = x;
+            this.y = y;
+        }
+    }
+
+    int boardWidth, boardHeight, tileSize = 25;
+    Tile snakeHead, food;
+    ArrayList<Tile> snakeBody;
+    Random random = new Random();
+    int velocityX = 1, velocityY = 0;
+    Timer gameLoop;
+    boolean gameOver = false;
+
+    CardLayout layout;
+    JPanel container;
+
+    public SnakeGame(int boardWidth, int boardHeight, CardLayout layout, JPanel container) {
+        this.boardWidth = boardWidth;
+        this.boardHeight = boardHeight;
+        this.layout = layout;
+        this.container = container;
+
+        setPreferredSize(new Dimension(boardWidth, boardHeight));
+        setBackground(Color.black);
+        setFocusable(true);
+        addKeyListener(this);
+        SwingUtilities.invokeLater(() -> requestFocusInWindow());
+
+        snakeHead = new Tile(5, 5);
+        snakeBody = new ArrayList<>();
+        food = new Tile(10, 10);
+        placeFood();
+
+        gameLoop = new Timer(100, this);
+        gameLoop.start();
+    }
+
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        draw(g);
+    }
+
+    public void draw(Graphics g) {
+        for (int i = 0; i < boardWidth / tileSize; i++) {
+            g.drawLine(i * tileSize, 0, i * tileSize, boardHeight);
+            g.drawLine(0, i * tileSize, boardWidth, i * tileSize);
+        }
+
+        g.setColor(Color.red);
+        g.fill3DRect(food.x * tileSize, food.y * tileSize, tileSize, tileSize, true);
+
+        g.setColor(Color.green);
+        g.fill3DRect(snakeHead.x * tileSize, snakeHead.y * tileSize, tileSize, tileSize, true);
+
+        for (Tile part : snakeBody) {
+            g.fill3DRect(part.x * tileSize, part.y * tileSize, tileSize, tileSize, true);
+        }
+
+        g.setFont(new Font("Arial", Font.PLAIN, 16));
+        g.setColor(gameOver ? Color.red : Color.white);
+        g.drawString("Score: " + snakeBody.size(), 10, 20);
+    }
+
+    public void placeFood() {
+        food.x = random.nextInt(boardWidth / tileSize);
+        food.y = random.nextInt(boardHeight / tileSize);
+    }
+
+    public void move() {
+        if (collision(snakeHead, food)) {
+            snakeBody.add(new Tile(food.x, food.y));
+            placeFood();
+        }
+
+        for (int i = snakeBody.size() - 1; i >= 1; i--) {
+            snakeBody.get(i).x = snakeBody.get(i - 1).x;
+            snakeBody.get(i).y = snakeBody.get(i - 1).y;
+        }
+
+        if (!snakeBody.isEmpty()) {
+            snakeBody.get(0).x = snakeHead.x;
+            snakeBody.get(0).y = snakeHead.y;
+        }
+
+        snakeHead.x += velocityX;
+        snakeHead.y += velocityY;
+
+        for (Tile part : snakeBody) {
+            if (collision(snakeHead, part))
+                gameOver = true;
+        }
+
+        if (snakeHead.x < 0 || snakeHead.x * tileSize >= boardWidth ||
+                snakeHead.y < 0 || snakeHead.y * tileSize >= boardHeight) {
+            gameOver = true;
+        }
+    }
+
+    public boolean collision(Tile a, Tile b) {
+        return a.x == b.x && a.y == b.y;
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        if (!gameOver) {
+            move();
+            repaint();
+        } else {
+            gameLoop.stop();
+            GameOverPanel gameOverPanel = new GameOverPanel(layout, container, boardWidth, boardHeight);
+            container.add(gameOverPanel, "gameOver");
+            layout.show(container, "gameOver");
+        }
+    }
+
+    @Override
+    public void keyPressed(KeyEvent e) {
+        int key = e.getKeyCode();
+        if (key == KeyEvent.VK_UP && velocityY != 1) {
+            velocityX = 0;
+            velocityY = -1;
+        } else if (key == KeyEvent.VK_DOWN && velocityY != -1) {
+            velocityX = 0;
+            velocityY = 1;
+        } else if (key == KeyEvent.VK_LEFT && velocityX != 1) {
+            velocityX = -1;
+            velocityY = 0;
+        } else if (key == KeyEvent.VK_RIGHT && velocityX != -1) {
+            velocityX = 1;
+            velocityY = 0;
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+    }
+}
+
+================================================================
+
+
+menu panel
+
+
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+
+public class MenuPanel extends JPanel {
+    private Image scaledImage;
+
+    public MenuPanel(CardLayout layout, JPanel container, int width, int height) {
+        setPreferredSize(new Dimension(width, height));
+        setLayout(new BorderLayout()); // Usando BorderLayout para centralizar os componentes
+
+        // Carregar imagem de fundo
+        ImageIcon backgroundImage = new ImageIcon("ajota.jpg"); // Caminho para sua imagem de fundo
+        Image image = backgroundImage.getImage();
+        scaledImage = image.getScaledInstance(width, height, Image.SCALE_SMOOTH);
+
+        // Título do jogo com estilo 8-bit
+        JLabel titleLabel = new JLabel("SnakeCobra", JLabel.CENTER);
+        titleLabel.setFont(new Font("Courier New", Font.BOLD, 48)); // Fonte monoespaçada para o estilo 8-bit
+        titleLabel.setForeground(new Color(255, 215, 0)); // Cor dourada para o título
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(50, 0, 30, 0)); // Espaço acima e abaixo
+
+        // Botão "Jogar" com estilo 8-bit
+        JButton playButton = new JButton("Jogar");
+        playButton.setFont(new Font("Courier New", Font.PLAIN, 24)); // Usando fonte monoespaçada
+        playButton.setPreferredSize(new Dimension(250, 60)); // Tamanho do botão
+        playButton.setBackground(new Color(34, 139, 34)); // Verde escuro para o botão
+        playButton.setForeground(Color.WHITE); // Cor do texto branco
+        playButton.setFocusPainted(false); // Removendo contorno de foco
+
+        // Adicionando efeitos de hover ao botão
+        playButton.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) {
+                playButton.setBackground(new Color(50, 205, 50)); // Efeito de hover (verde mais claro)
+            }
+
+            public void mouseExited(java.awt.event.MouseEvent evt) {
+                playButton.setBackground(new Color(34, 139, 34)); // Cor original do botão
+            }
+        });
+
+        // Ação do botão "Jogar"
+        playButton.addActionListener(e -> {
+            SnakeGame gamePanel = new SnakeGame(width, height, layout, container);
+            container.add(gamePanel, "game");
+            layout.show(container, "game");
+            SwingUtilities.invokeLater(() -> gamePanel.requestFocusInWindow());
+        });
+
+        // Adiciona o título e o botão "Jogar" ao painel
+        add(titleLabel, BorderLayout.NORTH);
+        add(playButton, BorderLayout.CENTER);
+
+        setBackground(new Color(0, 0, 0)); // Fundo preto
+    }
+
+    // Substituindo o método paintComponent para desenhar a imagem de fundo
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        if (scaledImage != null) {
+            g.drawImage(scaledImage, 0, 0, null); // Desenha a imagem de fundo
+        }
+    }
+}
+
+
+
+
+
+
+
